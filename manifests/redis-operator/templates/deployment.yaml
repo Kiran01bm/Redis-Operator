@@ -1,0 +1,41 @@
+---
+# Source: redis-operator/templates/deployment.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: operator-redis-operator
+  labels:
+    app: redis-operator
+    chart: redis-operator-0.0.0
+    release: operator
+    heritage: Tiller
+spec:
+  replicas: 1
+  strategy: 
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: redis-operator
+        release: operator
+    spec:
+      serviceAccountName: "redis-operator"
+      containers:
+        - name: redis-operator
+          image: "redisoperator/operator:master"
+          imagePullPolicy: IfNotPresent
+          args: ["--v=2", "--logtostderr=true", "--alsologtostderr"]
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8086
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8086
+            periodSeconds: 5
+          resources:
+            {}
+            

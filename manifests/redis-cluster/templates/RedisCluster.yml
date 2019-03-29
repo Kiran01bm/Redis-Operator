@@ -1,0 +1,75 @@
+---
+# Source: redis-cluster/templates/RedisCluster.yml
+apiVersion: "redisoperator.k8s.io/v1alpha1"
+kind: RedisCluster
+metadata:
+  name: mycluster
+  labels:
+    app: redis-cluster
+spec:
+  numberOfMaster: 1
+  replicationFactor: 3
+  serviceName: mycluster-redis-cluster
+  podTemplate:
+    metadata:
+      labels:
+        app: redis-cluster
+    spec:
+      serviceAccountName: mycluster-redis-cluster
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: conf
+          emptyDir: {}
+      containers:
+        - name: redis-node
+          image: "redisoperator/redisnode:master"
+          args: ["--v=6", 
+            "--c=/redis-conf/redis.conf",
+            "--logtostderr=true", 
+            "--alsologtostderr=true",
+            "--rs=mycluster-redis-cluster", 
+            "--t=10s", 
+            "--d=10s", 
+            "--ns=$(POD_NAMESPACE)",
+            "--ip=$(POD_IP)",
+             "--max-memory-policy=noeviction",
+            "--cluster-node-timeout=2000"]
+          imagePullPolicy: IfNotPresent
+          ports:
+              - containerPort: 6379
+                name:  redis
+              - containerPort: 16379
+                name: cluster
+          volumeMounts:
+            - name: data
+              mountPath: /redis-data
+            - name: conf
+              mountPath: /redis-conf
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8080
+            initialDelaySeconds: 12
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 12
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
